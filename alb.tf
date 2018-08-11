@@ -1,4 +1,4 @@
-resource "aws_security_group" "ecs_alb" {
+resource "aws_security_group" "app_alb" {
   description = "Balancer for ${var.app_name}"
 
   vpc_id = "${var.vpc}"
@@ -21,8 +21,8 @@ resource "aws_security_group" "ecs_alb" {
 
 resource "aws_alb" "main" {
   name            = "${var.app_name}"
-  subnets         = "${var.subnets}"
-  security_groups = ["${aws_security_group.ecs_alb.id}"]
+  subnets         = ["${var.subnets}"]
+  security_groups = ["${aws_security_group.app_alb.id}"]
 }
 
 resource "aws_alb_target_group" "main" {
@@ -32,7 +32,7 @@ resource "aws_alb_target_group" "main" {
   vpc_id   = "${var.vpc}"
 
   depends_on = [
-    "aws_alb.main"
+    "aws_alb.main",
   ]
 }
 

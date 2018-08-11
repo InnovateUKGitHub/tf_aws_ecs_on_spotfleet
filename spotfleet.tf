@@ -1,16 +1,16 @@
-resource "aws_iam_instance_profile" "ecs" {
-  name  = "${var.app_name}-ecs-instance"
-  roles = ["${aws_iam_role.ecs_instance.name}"]
+resource "aws_iam_instance_profile" "app" {
+  name = "${var.app_name}-app-instance"
+  role = "${aws_iam_role.app_instance.name}"
 }
 
-resource "aws_iam_policy_attachment" "ecs_instance" {
-  name       = "${var.app_name}-ecs-instance"
-  roles      = ["${aws_iam_role.ecs_instance.name}"]
+resource "aws_iam_policy_attachment" "app_instance" {
+  name       = "${var.app_name}-app-instance"
+  roles      = ["${aws_iam_role.app_instance.name}"]
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
 }
 
-resource "aws_iam_role" "ecs_instance" {
-  name = "${var.app_name}-ecs-instance"
+resource "aws_iam_role" "app_instance" {
+  name = "${var.app_name}-app-instance"
   path = "/"
 
   assume_role_policy = <<EOF
@@ -30,8 +30,8 @@ resource "aws_iam_role" "ecs_instance" {
 EOF
 }
 
-resource "aws_security_group" "ecs_instance" {
-  name        = "${var.app_name}-ecs-instance"
+resource "aws_security_group" "app_instance" {
+  name        = "${var.app_name}-app-instance"
   description = "container security group for ${var.app_name}"
   vpc_id      = "${var.vpc}"
 
@@ -39,7 +39,7 @@ resource "aws_security_group" "ecs_instance" {
     from_port       = 0
     to_port         = 65535
     protocol        = "TCP"
-    security_groups = ["${aws_security_group.ecs_alb.id}"]
+    security_groups = ["${aws_security_group.app_alb.id}"]
   }
 
   egress {
@@ -81,7 +81,7 @@ EOF
 
 resource "aws_spot_fleet_request" "main" {
   iam_fleet_role                      = "${aws_iam_role.fleet.arn}"
-  spot_price                          = "${var.spot_prices[0]}"
+  spot_price                          = "${element(var.spot_prices, 0)}"
   allocation_strategy                 = "${var.strategy}"
   target_capacity                     = "${var.instance_count}"
   terminate_instances_with_expiration = true
@@ -90,41 +90,46 @@ resource "aws_spot_fleet_request" "main" {
   launch_specification {
     ami                    = "${var.ami}"
     instance_type          = "${var.instance_type}"
-    spot_price             = "${var.spot_prices[0]}"
-    subnet_id              = "${var.subnets[0]}"
-    vpc_security_group_ids = ["${aws_security_group.ecs_instance.id}"]
-    iam_instance_profile   = "${aws_iam_instance_profile.ecs.name}"
+    spot_price             = "${element(var.spot_prices, 0)}"
+    subnet_id              = "${element(var.subnets, 0)}"
+    vpc_security_group_ids = ["${aws_security_group.app_instance.id}"]
+    iam_instance_profile   = "${aws_iam_instance_profile.app.name}"
     key_name               = "${var.key_name}"
 
     root_block_device = {
       volume_type = "gp2"
       volume_size = "${var.volume_size}"
     }
-
-    user_data = <<USER_DATA
-#!/bin/bash
-echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-USER_DATA
   }
 
   launch_specification {
     ami                    = "${var.ami}"
     instance_type          = "${var.instance_type}"
-    spot_price             = "${var.spot_prices[1]}"
-    subnet_id              = "${var.subnets[1]}"
-    vpc_security_group_ids = ["${aws_security_group.ecs_instance.id}"]
-    iam_instance_profile   = "${aws_iam_instance_profile.ecs.name}"
+    spot_price             = "${element(var.spot_prices, 1)}"
+    subnet_id              = "${element(var.subnets, 1)}"
+    vpc_security_group_ids = ["${aws_security_group.app_instance.id}"]
+    iam_instance_profile   = "${aws_iam_instance_profile.app.name}"
     key_name               = "${var.key_name}"
 
     root_block_device = {
       volume_type = "gp2"
       volume_size = "${var.volume_size}"
     }
+  }
 
-    user_data = <<USER_DATA
-#!/bin/bash
-echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-USER_DATA
+  launch_specification {
+    ami                    = "${var.ami}"
+    instance_type          = "${var.instance_type}"
+    spot_price             = "${element(var.spot_prices, 2)}"
+    subnet_id              = "${element(var.subnets, 2)}"
+    vpc_security_group_ids = ["${aws_security_group.app_instance.id}"]
+    iam_instance_profile   = "${aws_iam_instance_profile.app.name}"
+    key_name               = "${var.key_name}"
+
+    root_block_device = {
+      volume_type = "gp2"
+      volume_size = "${var.volume_size}"
+    }
   }
 
   depends_on = ["aws_iam_policy_attachment.fleet"]
